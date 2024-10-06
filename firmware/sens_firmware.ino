@@ -72,7 +72,7 @@ void latch(){
     latch_state_high = true;
     data_sent_counter = 0;
     read_buttons();
-    define_acceleration();
+    define_acceleration(false);
 
     for(int i = 0; i < SIZE_BUTTONS; i++){
       Serial.printf("%d ", _data[i]);
@@ -122,12 +122,12 @@ void read_buttons(){
 
 void define_acceleration_direction(int acceleration_difference) {
   if (acceleration_difference > 0) { // If the "acceleration_difference" is positive, it indicates movement in the right direction; therefore, it is equivalent to pressing the RIGHT button
-    _data[6] = 1; // Then, the _data[6] value is set to 1, indicating that the RIGHT button is pressed
+    _data[6] = 0; // Then, the _data[6] value is set to 0, indicating that the RIGHT button is pressed
   } else if (acceleration_difference < 0) { // If the "acceleration_difference" is negative, it indicates movement in the left direction. I'ts equivalent to pressing the LEFT button
-    _data[7] = 1;// Then, the _data[7] value is set to 1, indicating that the LEFT button is pressed
-  } else { // If the acceleration_difference is zero, it indicates no movement, either to the right or left. In this case, _data[6] and _data[7] need to be reset to 0. Otherwise, once movement to the right or left has occurred, they will remain set to 1 indefinitely
-    _data[6] = 0;
-    _data[7] = 0;
+    _data[7] = 0;// Then, the _data[7] value is set to 0, indicating that the LEFT button is pressed
+  } else { // If the acceleration_difference is zero, it indicates no movement, either to the right or left. In this case, _data[6] and _data[7] need to be reset to 1. Otherwise, once movement to the right or left has occurred, they will remain set to 0 indefinitely
+    _data[6] = 1;
+    _data[7] = 1;
   }
 }
 
@@ -153,7 +153,9 @@ void decimal_to_binary(
 }
 
 
-void define_acceleration() {
+void define_acceleration(
+  bool change_acceleration_magnitude
+) {
   /*
    * data[9] = ACCELERATION MAGNITITUDE MSB
    * data[10] = ACCELERATION MAGNITITUDE BIT
@@ -168,23 +170,25 @@ void define_acceleration() {
   
   define_acceleration_direction(x_acceleration_difference);
 
-  int x_acceleration_magnitude = get_acceleration_magnitude(
+  if (change_acceleration_magnitude) {
+    int x_acceleration_magnitude = get_acceleration_magnitude(
     x_acceleration_difference
-  );
+    );
 
-  // Fill the "binary_buffer" with the binary representation of the x acceleration magnitude
-  const size_t buffer_size = 8;  // Corresponds to the 8 bits used to store the binary representation of the acceleration magnitude in the "_data" buffer
-  int binary_buffer[buffer_size];  // Buffer to hold the 0s and 1s that represent the binary representation of the acceleration magnitude
-  
-  decimal_to_binary( // Once this function is executed, the "binary_buffer" is filled with the binary representation of the "x_acceleration_magnitude"
-    x_acceleration_magnitude,
-    binary_buffer,
-    buffer_size
-  );
+    // Fill the "binary_buffer" with the binary representation of the x acceleration magnitude
+    const size_t buffer_size = 8;  // Corresponds to the 8 bits used to store the binary representation of the acceleration magnitude in the "_data" buffer
+    int binary_buffer[buffer_size];  // Buffer to hold the 0s and 1s that represent the binary representation of the acceleration magnitude
+    
+    decimal_to_binary( // Once this function is executed, the "binary_buffer" is filled with the binary representation of the "x_acceleration_magnitude"
+      x_acceleration_magnitude,
+      binary_buffer,
+      buffer_size
+    );
 
-  // And the binary representation of the x acceleration magnitude can be written into the "_data" buffer (which stores the data sent to the driver) from the "binary_buffer"
-  for (int i = 0; i < buffer_size; i++) {
-    _data[i + buffer_size] = binary_buffer[i];
+    // And the binary representation of the x acceleration magnitude can be written into the "_data" buffer (which stores the data sent to the driver) from the "binary_buffer"
+    for (int i = 0; i < buffer_size; i++) {
+      _data[i + buffer_size] = binary_buffer[i];
+    }
   }
 
   // Update the previous acceleration value at the end of each cycle

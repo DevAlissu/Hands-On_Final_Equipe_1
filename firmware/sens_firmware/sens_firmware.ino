@@ -70,6 +70,7 @@ void latch(){
     latch_state_high = true;
     data_sent_counter = 0;
     read_buttons();
+    define_acceleration();
 
     for(int i = 0; i < SIZE_BUTTONS; i++){
       Serial.printf("%d ", _data[i]);
@@ -112,40 +113,74 @@ void read_buttons(){
 
   _data[8] = digitalRead(START_BUTTON_PIN);
 
-  // The bits from data[9] to data[15] won't receive data read from the controller. Their bits will be defined by the code's internal logic
+  // The bits from _data[9] to _data[15] won't receive data from the controller. Instead, their values will be defined by the code's internal logic
   
 }
 
 
-int define_acceleration_magnitude(int acceleration_difference) {
+void define_acceleration_direction(int acceleration_difference) {
+  if (acceleration_difference > 0) { // If the x acceleration value is positive, it indicates movement in the right direction; therefore, it is equivalent to pressing the RIGHT button
+    _data[6] = 1; // Then, the _data[6] value is set to 1, indicating that the RIGHT button is pressed
+  } else if (acceleration_difference < 0) { // If the x acceleration value is negative, it indicates movement in the left direction. I'ts equivalent to pressing the LEFT button
+    _data[7] = 1;// Then, the _data[7] value is set to 1, indicating that the LEFT button is pressed
+  }
+}
+
+
+int get_acceleration_magnitude(int acceleration_difference) {
   double x_acceleration_magnitude_double = (double)MAX_ACCELERATION_MAGNITUDE / (double)MAX_ACCELERATION_READ * acceleration_difference;
   int x_acceleration_magnitude_int = floor(x_acceleration_magnitude_double);
   return abs(x_acceleration_magnitude_int);
 }
 
 
-void define_acceleration () {
+void decimal_to_binary(
+  unsigned int decimal_number,
+  int* buffer,
+  size_t buffer_size
+) {
+  int index = buffer_size - 1;  // Start from the last position of the buffer
+  // Fill the buffer with binary digits
+  for (int i = 0; i < buffer_size; i++) {
+    buffer[index--] = (decimal_number & 1);  // Extract the least significant bit and store it as an int (0 or 1)
+    decimal_number >>= 1;  // Shift the number right to process the next bit
+  }
+}
+
+
+void define_acceleration() {
   /*
-  * data[9] = ACCELERATION MAGNITITUDE MSB
+   * data[9] = ACCELERATION MAGNITITUDE MSB
    * data[10] = ACCELERATION MAGNITITUDE BIT
    * data[11] = ACCELERATION MAGNITITUDE BIT
    * data[12] = ACCELERATION MAGNITITUDE BIT
    * data[13] = ACCELERATION MAGNITITUDE BIT
    * data[14] = ACCELERATION MAGNITITUDE BIT
    * data[15] = ACCELERATION MAGNITITUDE LSB
-  */
+   */
   int current_x_acceleration = analogRead(XPIN);
   int x_acceleration_difference = current_x_acceleration - previous_x_accleration;
   
-  if (x_acceleration_difference > 0) { // If the x acceleration value is positive, it indicates a moving in right direction and therefore, it's equivalent to pressing the RIGHT button
-    _data[6] = 1; // Then the _data[6] value is set to 1, indicating a RIGHT button pressing
-  } else if (x_acceleration_difference < 0) { // If the x acceleration value is postivie, it indicates a moving in the left direction. I'ts equivalent to press the LEFT button
-    _data[7] = 1;// Then the _data[6] value is set to 1, indication a LEFT button pressing
-  }
+  define_acceleration_direction(x_acceleration_difference);
 
-  int x_acceleration_magnitude = define_acceleration_magnitude(
+  int x_acceleration_magnitude = get_acceleration_magnitude(
     x_acceleration_difference
   );
+
+  // Fill the "binary_buffer" with the binary representation of the x acceleration magnitude
+  const size_t buffer_size = 8;  // Corresponds to the 8 bits used to store the binary representation of the acceleration magnitude in the "_data" buffer
+  int binary_buffer[buffer_size];  // Buffer to hold the 0s and 1s that represent the binary representation of the acceleration magnitude
+  
+  decimal_to_binary( // Once this function is executed, the "binary_buffer" is filled with the binary representation of the "x_acceleration_magnitude"
+    x_acceleration_magnitude,
+    binary_buffer,
+    buffer_size
+  );
+
+  // And the binary representation of the x acceleration magnitude can be written into the "_data" buffer (which stores the data sent to the driver) from the "binary_buffer"
+  for (int i = 0; i < buffer_size; i++) {
+    _data[i + buffer_size] = binary_buffer[i];
+  }
 }
 
 void init_buttons(){

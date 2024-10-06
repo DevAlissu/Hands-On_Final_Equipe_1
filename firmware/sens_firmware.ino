@@ -1,4 +1,4 @@
-
+#include<math.h>
 
 #define CLK_PIN   12
 #define LATCH_PIN 14
@@ -16,16 +16,18 @@
 #define X_BUTTON_PIN      27
 #define Y_BUTTON_PIN      33
 
-
-#include<math.h>
 #define XPIN 32
 #define YPIN 35
 #define ZPIN 34
 
-#define SIZE_BUTTONS 16
+#define NUMBER_OF_REGULAR_BUTTONS 8 // Not counting the accelerometer directions
+#define BUTTONS_AND_ACCELEROMETER_DIRECTIONS_BUFFER_SIZE 13
+#define BUTTONS_BUFFER_SIZE 37
 
 #define MAX_ACCELERATION_READ 2000
 #define MAX_ACCELERATION_MAGNITUDE 255
+
+#define CHANGE_ACCELERATION_MAGNITUDE false
 
 bool clk_state = false; 
 bool clk_state_high = false;
@@ -35,12 +37,36 @@ bool latch_state_high = false;
 
 long time_since_boot = 0;
 
-bool _data[SIZE_BUTTONS] = {false};
+bool _data[BUTTONS_BUFFER_SIZE] = {false};
 uint8_t data_sent_counter = 0;
 
-int previous_x_accleration = analogRead(XPIN);
+int xv = analogRead(XPIN);
 int yv = analogRead(YPIN);
 int zv = analogRead(ZPIN);
+
+
+void send_data() {
+  int buttons_buffer_size = BUTTONS_AND_ACCELEROMETER_DIRECTIONS_BUFFER_SIZE;
+  if (CHANGE_ACCELERATION_MAGNITUDE) buttons_buffer_size = BUTTONS_BUFFER_SIZE;
+
+  if(data_sent_counter < buttons_buffer_size){
+    digitalWrite(DATA_PIN, _data[data_sent_counter]);
+    Serial.printf("Data sent data[%d] = %d\n", data_sent_counter, _data[data_sent_counter]);
+    data_sent_counter++;
+  }
+}
+
+
+void print_data_buffer() {
+  int buttons_buffer_size = BUTTONS_AND_ACCELEROMETER_DIRECTIONS_BUFFER_SIZE;
+  if (CHANGE_ACCELERATION_MAGNITUDE) buttons_buffer_size = BUTTONS_BUFFER_SIZE;
+
+  for(int i = 0; i < buttons_buffer_size; i++){
+    Serial.printf("%d ", _data[i]);
+  }
+  Serial.println();
+}
+
 
 void clk(){
   if (clk_state == HIGH && !clk_state_high) {
@@ -49,14 +75,9 @@ void clk(){
 //    Serial.println(esp_timer_get_t/ime() - time_since_boot);
 //    time_since_boot = esp_timer_get_t/ime();
     clk_state_high = true;
-    if(data_sent_counter < SIZE_BUTTONS){
-      digitalWrite(DATA_PIN, _data[data_sent_counter]);
-      Serial.printf("Data sent data[%d] = %d\n", data_sent_counter, _data[data_sent_counter]);
-      data_sent_counter++;
-    }
+    send_data();
       
-  } 
-  else if(clk_state == LOW) {
+  } else if (clk_state == LOW) {
     // turn LED off:
 //    digitalWrite(LED_PIN, LOW);/
     clk_state_high = false;
@@ -72,23 +93,16 @@ void latch(){
     latch_state_high = true;
     data_sent_counter = 0;
     read_buttons();
-    define_acceleration(false);
-
-    for(int i = 0; i < SIZE_BUTTONS; i++){
-      Serial.printf("%d ", _data[i]);
-    }
-    Serial.println();
-
+    define_acceleration();
     
-  } 
-  else if(latch_state == LOW) {
+    print_data_buffer();
+  } else if (latch_state == LOW) {
     // turn LED off:
     digitalWrite(LED_PIN, LOW);
     latch_state_high = false;
   }
 
 }
-
 
 
 void read_buttons(){
@@ -120,22 +134,34 @@ void read_buttons(){
 }
 
 
-void define_acceleration_direction(int acceleration_difference) {
-  if (acceleration_difference > 0) { // If the "acceleration_difference" is positive, it indicates movement in the right direction; therefore, it is equivalent to pressing the RIGHT button
-    _data[6] = 0; // Then, the _data[6] value is set to 0, indicating that the RIGHT button is pressed
-  } else if (acceleration_difference < 0) { // If the "acceleration_difference" is negative, it indicates movement in the left direction. I'ts equivalent to pressing the LEFT button
-    _data[7] = 0;// Then, the _data[7] value is set to 0, indicating that the LEFT button is pressed
-  } else { // If the acceleration_difference is zero, it indicates no movement, either to the right or left. In this case, _data[6] and _data[7] need to be reset to 1. Otherwise, once movement to the right or left has occurred, they will remain set to 0 indefinitely
-    _data[6] = 1;
-    _data[7] = 1;
+void define_x_acceleration_direction(int x_acceleration_difference) {
+  if (x_acceleration_difference > 0) { // If the "x_acceleration_difference" is positive, it indicates movement in the right direction; therefore, it is equivalent to pressing the RIGHT button
+    _data[11] = 0; // Then, the _data[11] value is set to 0, indicating that the RIGHT button is pressed
+  } else if (x_acceleration_difference < 0) { // If the "x_acceleration_difference" is negative, it indicates movement in the left direction. I'ts equivalent to pressing the LEFT button
+    _data[12] = 0;// Then, the _data[12] value is set to 0, indicating that the LEFT button is pressed
+  } else { // If the x_acceleration_difference is zero, it indicates no movement, either to the right or left. In this case, _data[11] and _data[12] need to be reset to 1. Otherwise, once movement to the right or left has occurred, they will remain set to 0 indefinitely
+    _data[11] = 1;
+    _data[12] = 1;
+  }
+}
+
+
+void define_y_acceleration_direction(int y_acceleration_difference) {
+  if (y_acceleration_difference > 0) { // If the "y_acceleration_difference" is positive, it indicates movement in the up direction; therefore, it is equivalent to pressing the UP button
+    _data[9] = 0; // Then, the _data[9] value is set to 0, indicating that the UP button is pressed
+  } else if (y_acceleration_difference < 0) { // If the "y_acceleration_difference" is negative, it indicates movement in the down direction. I'ts equivalent to pressing the DOWN button
+    _data[10] = 0;// Then, the _data[10] value is set to 0, indicating that the DOWN button is pressed
+  } else { // If the y_acceleration_difference is zero, it indicates no movement, either to the up or down. In this case, _data[9] and _data[10] need to be reset to 1. Otherwise, once movement to the up or down has occurred, they will remain set to 0 indefinitely
+    _data[9] = 1;
+    _data[10] = 1;
   }
 }
 
 
 int get_acceleration_magnitude(int acceleration_difference) {
-  double x_acceleration_magnitude_double = (double)MAX_ACCELERATION_MAGNITUDE / (double)MAX_ACCELERATION_READ * acceleration_difference;
-  int x_acceleration_magnitude_int = floor(x_acceleration_magnitude_double);
-  return abs(x_acceleration_magnitude_int);
+  double acceleration_magnitude_double = (double)MAX_ACCELERATION_MAGNITUDE / (double)MAX_ACCELERATION_READ * acceleration_difference;
+  int acceleration_magnitude_int = floor(acceleration_magnitude_double);
+  return abs(acceleration_magnitude_int);
 }
 
 
@@ -153,46 +179,126 @@ void decimal_to_binary(
 }
 
 
-void define_acceleration(
-  bool change_acceleration_magnitude
+void define_acceleration_magnitudes(
+  int x_acceleration_difference,
+  int y_acceleration_difference,
+  int z_acceleration_difference
 ) {
   /*
-   * data[9] = ACCELERATION MAGNITITUDE MSB
-   * data[10] = ACCELERATION MAGNITITUDE BIT
-   * data[11] = ACCELERATION MAGNITITUDE BIT
-   * data[12] = ACCELERATION MAGNITITUDE BIT
-   * data[13] = ACCELERATION MAGNITITUDE BIT
-   * data[14] = ACCELERATION MAGNITITUDE BIT
-   * data[15] = ACCELERATION MAGNITITUDE LSB
+   * data[9] = ACCELEROMETER UP
+   * data[10] = ACCELEROMETER DOWN
+   * data[11] = ACCELEROMETER RIGHT
+   * data[12] = ACCELEROMETER LEFT
+   *
+   * data[13] = X ACCELERATION MAGNITITUDE MSB
+   * data[14] = X ACCELERATION MAGNITITUDE BIT
+   * data[15] = X ACCELERATION MAGNITITUDE BIT
+   * data[16] = X ACCELERATION MAGNITITUDE BIT
+   * data[17] = X ACCELERATION MAGNITITUDE BIT
+   * data[18] = X ACCELERATION MAGNITITUDE BIT
+   * data[19] = X ACCELERATION MAGNITITUDE BIT
+   * data[20] = X ACCELERATION MAGNITITUDE LSB
+   *
+   * data[21] = Y ACCELERATION MAGNITITUDE MSB
+   * data[22] = Y ACCELERATION MAGNITITUDE BIT
+   * data[23] = Y ACCELERATION MAGNITITUDE BIT
+   * data[24] = Y ACCELERATION MAGNITITUDE BIT
+   * data[25] = Y ACCELERATION MAGNITITUDE BIT
+   * data[26] = Y ACCELERATION MAGNITITUDE BIT
+   * data[27] = Y ACCELERATION MAGNITITUDE BIT
+   * data[28] = Y ACCELERATION MAGNITITUDE LSB
+   *
+   * data[29] = Z ACCELERATION MAGNITITUDE MSB
+   * data[30] = Z ACCELERATION MAGNITITUDE BIT
+   * data[31] = Z ACCELERATION MAGNITITUDE BIT
+   * data[32] = Z ACCELERATION MAGNITITUDE BIT
+   * data[33] = Z ACCELERATION MAGNITITUDE BIT
+   * data[34] = Z ACCELERATION MAGNITITUDE BIT
+   * data[35] = Z ACCELERATION MAGNITITUDE BIT
+   * data[36] = Z ACCELERATION MAGNITITUDE LSB
    */
-  int current_x_acceleration = analogRead(XPIN);
-  int x_acceleration_difference = current_x_acceleration - previous_x_accleration;
-  
-  define_acceleration_direction(x_acceleration_difference);
-
-  if (change_acceleration_magnitude) {
-    int x_acceleration_magnitude = get_acceleration_magnitude(
+  int x_acceleration_magnitude = get_acceleration_magnitude(
     x_acceleration_difference
-    );
+  );
+  int y_acceleration_magnitude = get_acceleration_magnitude(
+    y_acceleration_difference
+  );
+  int z_acceleration_magnitude = get_acceleration_magnitude(
+    z_acceleration_difference
+  );
 
-    // Fill the "binary_buffer" with the binary representation of the x acceleration magnitude
-    const size_t buffer_size = 8;  // Corresponds to the 8 bits used to store the binary representation of the acceleration magnitude in the "_data" buffer
-    int binary_buffer[buffer_size];  // Buffer to hold the 0s and 1s that represent the binary representation of the acceleration magnitude
-    
-    decimal_to_binary( // Once this function is executed, the "binary_buffer" is filled with the binary representation of the "x_acceleration_magnitude"
-      x_acceleration_magnitude,
-      binary_buffer,
-      buffer_size
-    );
+  // Fill the axis binary buffers with the binary representation of each axis acceleration magnitude
+  const size_t axis_buffers_size = 8;  // Corresponds to the 8 bits used to store the binary representation of the x (as well as y and z) acceleration magnitude in the "_data" buffer
+  int x_binary_buffer[axis_buffers_size]; // Buffer to hold the 0s and 1s that represent the binary representation of the x acceleration magnitude
+  int y_binary_buffer[axis_buffers_size]; // Buffer to hold the 0s and 1s that represent the binary representation of the y acceleration magnitude
+  int z_binary_buffer[axis_buffers_size]; // Buffer to hold the 0s and 1s that represent the binary representation of the z acceleration magnitude
+  
+  decimal_to_binary( // Once this function is executed, the "x_binary_buffer" is filled with the binary representation of the "x_acceleration_magnitude"
+    x_acceleration_magnitude,
+    x_binary_buffer,
+    axis_buffers_size
+  );
+  decimal_to_binary( // Same thing for the y axis
+    y_acceleration_magnitude,
+    y_binary_buffer,
+    axis_buffers_size
+  );
+  decimal_to_binary( // Same thing for the z axis
+    z_acceleration_magnitude,
+    z_binary_buffer,
+    axis_buffers_size
+  );
 
-    // And the binary representation of the x acceleration magnitude can be written into the "_data" buffer (which stores the data sent to the driver) from the "binary_buffer"
-    for (int i = 0; i < buffer_size; i++) {
-      _data[i + buffer_size] = binary_buffer[i];
-    }
+  // And the binary representation of the x acceleration magnitude can be written into the "_data" buffer (which stores the data sent to the driver) from the "x_binary_buffer"
+  int i = 0;
+  int _data_index = BUTTONS_AND_ACCELEROMETER_DIRECTIONS_BUFFER_SIZE; // Starts from index 13
+  while (i < axis_buffers_size) { // In the "_data" buffer, the x acceleration magnitude bits ranges from the index 9 to 15 (8 steps)
+    _data[_data_index] = x_binary_buffer[i];
+    _data_index++;
+    i++;
+  }
+  // Same thing for the "y_binary_buffer"
+  i = 0;
+  while (i < axis_buffers_size * 2) { // In the "_data" buffer, the y acceleration magnitude bits ranges from the index 17 to 24 (8 steps)
+    _data[_data_index] = y_binary_buffer[i];
+    _data_index++;
+    i++;
+  }
+  // Same thing for the "z_binary_buffer"
+  i = 0;
+  while (i < axis_buffers_size * 3) { // In the "_data" buffer, the y acceleration magnitude bits ranges from the index 25 to 32 (8 steps)
+    _data[_data_index] = z_binary_buffer[i];
+    _data_index++;
+    i++;
+  }
+}
+
+
+void define_acceleration() {
+  int current_x_acceleration = analogRead(XPIN);
+  int current_y_acceleration = analogRead(YPIN);
+  int current_z_acceleration = analogRead(ZPIN);
+
+  int x_acceleration_difference = current_x_acceleration - xv;
+  int y_acceleration_difference = current_y_acceleration - yv;
+  int z_acceleration_difference = current_z_acceleration - zv;
+  
+  define_x_acceleration_direction(x_acceleration_difference);
+  define_y_acceleration_direction(y_acceleration_difference);
+
+  if (CHANGE_ACCELERATION_MAGNITUDE) {
+    define_acceleration_magnitudes(
+      x_acceleration_difference,
+      y_acceleration_difference,
+      z_acceleration_difference
+    );
   }
 
-  // Update the previous acceleration value at the end of each cycle
-  previous_x_accleration = analogRead(XPIN);
+  // Update the previous acceleration values at the end of each cycle
+  xv = analogRead(XPIN);
+  yv = analogRead(YPIN);
+  zv = analogRead(ZPIN);
+
   delay(100);
 }
 

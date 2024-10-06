@@ -13,10 +13,17 @@
 //#define START_BUTTON_PIN  23
 #define A_BUTTON_PIN      26
 #define B_BUTTON_PIN      25
-#define X_BUTTON_PIN      27
-#define Y_BUTTON_PIN      33
 
-#define SIZE_BUTTONS 9
+
+#include<math.h>
+#define XPIN 32
+#define YPIN 35
+#define ZPIN 34
+
+#define SIZE_BUTTONS 16
+
+#define MAX_ACCELERATION_READ 5000
+#define MAX_ACCELERATION_MAGNITUDE 255
 
 bool clk_state = false; 
 bool clk_state_high = false;
@@ -28,6 +35,10 @@ long time_since_boot = 0;
 
 bool _data[SIZE_BUTTONS] = {false};
 uint8_t data_sent_counter = 0;
+
+int previous_x_accleration = analogRead(XPIN);
+int yv = analogRead(YPIN);
+int zv = analogRead(ZPIN);
 
 void clk(){
   if (clk_state == HIGH && !clk_state_high) {
@@ -100,7 +111,41 @@ void read_buttons(){
   _data[7] = digitalRead(LEFT_BUTTON_PIN);
 
   _data[8] = digitalRead(START_BUTTON_PIN);
+
+  // The bits from data[9] to data[15] won't receive data read from the controller. Their bits will be defined by the code's internal logic
   
+}
+
+
+int define_acceleration_magnitude(int acceleration_difference) {
+  double x_acceleration_magnitude_double = (double)MAX_ACCELERATION_MAGNITUDE / (double)MAX_ACCELERATION_READ * acceleration_difference;
+  int x_acceleration_magnitude_int = floor(x_acceleration_magnitude_double);
+  return abs(x_acceleration_magnitude_int);
+}
+
+
+void define_acceleration () {
+  /*
+  * data[9] = ACCELERATION MAGNITITUDE MSB
+   * data[10] = ACCELERATION MAGNITITUDE BIT
+   * data[11] = ACCELERATION MAGNITITUDE BIT
+   * data[12] = ACCELERATION MAGNITITUDE BIT
+   * data[13] = ACCELERATION MAGNITITUDE BIT
+   * data[14] = ACCELERATION MAGNITITUDE BIT
+   * data[15] = ACCELERATION MAGNITITUDE LSB
+  */
+  int current_x_acceleration = analogRead(XPIN);
+  int x_acceleration_difference = current_x_acceleration - previous_x_accleration;
+  
+  if (x_acceleration_difference > 0) { // If the x acceleration value is positive, it indicates a moving in right direction and therefore, it's equivalent to pressing the RIGHT button
+    _data[6] = 1; // Then the _data[6] value is set to 1, indicating a RIGHT button pressing
+  } else if (x_acceleration_difference < 0) { // If the x acceleration value is postivie, it indicates a moving in the left direction. I'ts equivalent to press the LEFT button
+    _data[7] = 1;// Then the _data[6] value is set to 1, indication a LEFT button pressing
+  }
+
+  int x_acceleration_magnitude = define_acceleration_magnitude(
+    x_acceleration_difference
+  );
 }
 
 void init_buttons(){
@@ -113,6 +158,10 @@ void init_buttons(){
   pinMode(B_BUTTON_PIN, INPUT_PULLUP);
   pinMode(X_BUTTON_PIN, INPUT_PULLUP);
   pinMode(Y_BUTTON_PIN, INPUT_PULLUP);
+
+  pinMode(XPIN, INPUT);
+  pinMode(YPIN, INPUT);
+  pinMode(ZPIN, INPUT);
 }
 
 void setup() {

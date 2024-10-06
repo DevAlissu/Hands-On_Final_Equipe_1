@@ -13,6 +13,8 @@
 //#define START_BUTTON_PIN  23
 #define A_BUTTON_PIN      26
 #define B_BUTTON_PIN      25
+#define X_BUTTON_PIN      27
+#define Y_BUTTON_PIN      33
 
 
 #include<math.h>
@@ -22,7 +24,7 @@
 
 #define SIZE_BUTTONS 16
 
-#define MAX_ACCELERATION_READ 5000
+#define MAX_ACCELERATION_READ 2000
 #define MAX_ACCELERATION_MAGNITUDE 255
 
 bool clk_state = false; 

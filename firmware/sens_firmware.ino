@@ -121,10 +121,13 @@ void read_buttons(){
 
 
 void define_acceleration_direction(int acceleration_difference) {
-  if (acceleration_difference > 0) { // If the x acceleration value is positive, it indicates movement in the right direction; therefore, it is equivalent to pressing the RIGHT button
+  if (acceleration_difference > 0) { // If the "acceleration_difference" is positive, it indicates movement in the right direction; therefore, it is equivalent to pressing the RIGHT button
     _data[6] = 1; // Then, the _data[6] value is set to 1, indicating that the RIGHT button is pressed
-  } else if (acceleration_difference < 0) { // If the x acceleration value is negative, it indicates movement in the left direction. I'ts equivalent to pressing the LEFT button
+  } else if (acceleration_difference < 0) { // If the "acceleration_difference" is negative, it indicates movement in the left direction. I'ts equivalent to pressing the LEFT button
     _data[7] = 1;// Then, the _data[7] value is set to 1, indicating that the LEFT button is pressed
+  } else { // If the acceleration_difference is zero, it indicates no movement, either to the right or left. In this case, _data[6] and _data[7] need to be reset to 0. Otherwise, once movement to the right or left has occurred, they will remain set to 1 indefinitely
+    _data[6] = 0;
+    _data[7] = 0;
   }
 }
 
@@ -183,6 +186,10 @@ void define_acceleration() {
   for (int i = 0; i < buffer_size; i++) {
     _data[i + buffer_size] = binary_buffer[i];
   }
+
+  // Update the previous acceleration value at the end of each cycle
+  previous_x_accleration = analogRead(XPIN);
+  delay(100);
 }
 
 void init_buttons(){

@@ -22,10 +22,35 @@
 
 #define BUTTONS_BUFFER_SIZE 13
 
+#define A_BUTTON_INDEX 0
+#define B_BUTTON_INDEX 1
+#define X_BUTTON_INDEX 2
+#define Y_BUTTON_INDEX 3
+#define UP_BUTTON_INDEX 4
+#define DOWN_BUTTON_INDEX 5 
+#define RIGHT_BUTTON_INDEX 6
+#define LEFT_BUTTON_INDEX 7
+#define START_BUTTON_INDEX 8
+#define UP_ACCELEROMETER_INDEX 9
+#define DOWN_ACCELEROMETER_INDEX 10
+#define RIGHT_ACCELEROMETER_INDEX 11
+#define LEFT_ACCELEROMETER_INDEX 12
+
+#define VARY_DUTY_CYCLE true // If this is set to "false", the duty cycle will remain constant at 100%. If it's set to "true", the duty cycle will vary proportionally with the controller's tilt, ranging from 25% to 100%
+
 const int ACC_DUTY_CYCLE_25[4] = {0,1,1,1};
 const int ACC_DUTY_CYCLE_50[4] = {0,0,1,1};
 const int ACC_DUTY_CYCLE_75[4] = {0,0,0,1};
 const int ACC_DUTY_CYCLE_100[4] = {0,0,0,0};
+
+/*
+  Changing the upper and lower no-tilt limit values allows to configure the controller's sensitivity. The greater the interval, the lesser the controller's sensitivity.
+  Therefore, if it's wanted to keep the accelerometer active in the firmware, the maximum upper value must be 21, and the lower value must be 15.
+  However, setting the upper limit to 21 and the lower limit to 15 prevents the duty cycle from varying, even if the "VARY_DUTY_CYCLE" constant is set to true.
+  Therefore, it is recommended that the maximum upper value be 20 and the minimum lower value be 16
+*/
+const int NO_TILT_UPPER_LIMIT = 19; // It can vary within a range of 18 to 20 (with 18 as the default)
+const int NO_TILT_LOWER_LIMIT = 17; // It can vary within a range of 16 to 18 (with 18 as the default)
 
 const int UP_TILT_VALUES[4] = {
   17, // Corresponds to the smaller tilt
@@ -41,7 +66,6 @@ const int DOWN_TILT_VALUES[4] = {
 };
 const int* RIGHT_TILT_VALUES = DOWN_TILT_VALUES;
 const int* LEFT_TILT_VALUES = UP_TILT_VALUES;
-
 
 int x_acc_duty_cycle_25_index = 0;
 int x_acc_duty_cycle_50_index = 0;
@@ -131,17 +155,17 @@ void read_buttons(){
    * data[7] = LEFT
    * data[8] = START
    */
-  _data[0] = digitalRead(A_BUTTON_PIN);
-  _data[1] = digitalRead(B_BUTTON_PIN);
-  _data[2] = digitalRead(X_BUTTON_PIN);
-  _data[3] = digitalRead(Y_BUTTON_PIN);
+  _data[A_BUTTON_INDEX] = digitalRead(A_BUTTON_PIN);
+  _data[B_BUTTON_INDEX] = digitalRead(B_BUTTON_PIN);
+  _data[X_BUTTON_INDEX] = digitalRead(X_BUTTON_PIN);
+  _data[Y_BUTTON_INDEX] = digitalRead(Y_BUTTON_PIN);
   
-  _data[4] = digitalRead(UP_BUTTON_PIN);
-  _data[5] = digitalRead(DOWN_BUTTON_PIN);
-  _data[6] = digitalRead(RIGHT_BUTTON_PIN);
-  _data[7] = digitalRead(LEFT_BUTTON_PIN);
+  _data[UP_BUTTON_INDEX] = digitalRead(UP_BUTTON_PIN);
+  _data[DOWN_BUTTON_INDEX] = digitalRead(DOWN_BUTTON_PIN);
+  _data[RIGHT_BUTTON_INDEX] = digitalRead(RIGHT_BUTTON_PIN);
+  _data[LEFT_BUTTON_INDEX] = digitalRead(LEFT_BUTTON_PIN);
 
-  _data[8] = digitalRead(START_BUTTON_PIN);
+  _data[START_BUTTON_INDEX] = digitalRead(START_BUTTON_PIN);
 
   // The bits from _data[9] to _data[12] won't receive data from the controller. Instead, their values will be defined by the code's internal logic
   
@@ -156,46 +180,52 @@ int set_acc_duty_cycle_index_value(int index) {
 
 
 void define_acceleration_duty_cycle(
-  int acceleration_value,
+  int tilt_value,
   const int values_corresponding_to_the_controllers_tilt[4],
-  int button_index, // 9 for UP, 10 for DOWN, 11 for RIGHT and 12 FOR LEFT
+  int button_index,
   int &acc_duty_cycle_25_index,
   int &acc_duty_cycle_50_index,
   int &acc_duty_cycle_75_index,
   int &acc_duty_cycle_100_index
 ) {
-  if (acceleration_value == values_corresponding_to_the_controllers_tilt[0]) {
-    _data[button_index] = ACC_DUTY_CYCLE_25[acc_duty_cycle_25_index];
-    acc_duty_cycle_25_index = set_acc_duty_cycle_index_value(
-      acc_duty_cycle_25_index
-    );
-  } else if (acceleration_value == values_corresponding_to_the_controllers_tilt[1]) {
-    _data[button_index] = ACC_DUTY_CYCLE_75[acc_duty_cycle_50_index];
-    acc_duty_cycle_50_index = set_acc_duty_cycle_index_value(
-      acc_duty_cycle_50_index
-    );
-  } else if (acceleration_value == values_corresponding_to_the_controllers_tilt[2]) {
-    _data[button_index] = ACC_DUTY_CYCLE_50[acc_duty_cycle_75_index];
-    acc_duty_cycle_75_index = set_acc_duty_cycle_index_value(
-      acc_duty_cycle_75_index
-    );
-  } else if (acceleration_value == values_corresponding_to_the_controllers_tilt[3]) {
+  if (
+    (tilt_value > NO_TILT_UPPER_LIMIT ||
+    tilt_value < NO_TILT_LOWER_LIMIT)  &&
+    !VARY_DUTY_CYCLE
+  ) {
     _data[button_index] = ACC_DUTY_CYCLE_100[acc_duty_cycle_100_index];
     acc_duty_cycle_100_index = set_acc_duty_cycle_index_value(
       acc_duty_cycle_100_index
     );
-  } else {
-    _data[button_index] = 1;
-  }
+  } else if (tilt_value == values_corresponding_to_the_controllers_tilt[0]) {
+    _data[button_index] = ACC_DUTY_CYCLE_25[acc_duty_cycle_25_index];
+    acc_duty_cycle_25_index = set_acc_duty_cycle_index_value(
+      acc_duty_cycle_25_index
+    );
+  } else if (tilt_value == values_corresponding_to_the_controllers_tilt[1]) {
+    _data[button_index] = ACC_DUTY_CYCLE_75[acc_duty_cycle_50_index];
+    acc_duty_cycle_50_index = set_acc_duty_cycle_index_value(
+      acc_duty_cycle_50_index
+    );
+  } else if (tilt_value == values_corresponding_to_the_controllers_tilt[2]) {
+    _data[button_index] = ACC_DUTY_CYCLE_50[acc_duty_cycle_75_index];
+    acc_duty_cycle_75_index = set_acc_duty_cycle_index_value(
+      acc_duty_cycle_75_index
+    );
+  } else if (tilt_value == values_corresponding_to_the_controllers_tilt[3]) {
+    _data[button_index] = ACC_DUTY_CYCLE_100[acc_duty_cycle_100_index];
+    acc_duty_cycle_100_index = set_acc_duty_cycle_index_value(
+      acc_duty_cycle_100_index
+    );
+ }
 }
 
 
-void define_up_acceleration(int acceleration_value) {
-  int up_accelerometer_index = 9;
+void define_up_acceleration(int tilt_value) {
   define_acceleration_duty_cycle(
-    acceleration_value,
+    tilt_value,
     UP_TILT_VALUES,
-    up_accelerometer_index,
+    UP_ACCELEROMETER_INDEX,
     y_acc_duty_cycle_25_index,
     y_acc_duty_cycle_50_index,
     y_acc_duty_cycle_75_index,
@@ -204,12 +234,11 @@ void define_up_acceleration(int acceleration_value) {
 }
 
 
-void define_down_acceleration(int acceleration_value) {
-  int down_accelerometer_index = 10;
+void define_down_acceleration(int tilt_value) {
   define_acceleration_duty_cycle(
-    acceleration_value,
+    tilt_value,
     DOWN_TILT_VALUES,
-    down_accelerometer_index,
+    DOWN_ACCELEROMETER_INDEX,
     y_acc_duty_cycle_25_index,
     y_acc_duty_cycle_50_index,
     y_acc_duty_cycle_75_index,
@@ -217,12 +246,11 @@ void define_down_acceleration(int acceleration_value) {
   );
 }
 
-void define_right_acceleration(int acceleration_value) {
-  int right_accelerometer_index = 11;
+void define_right_acceleration(int tilt_value) {
   define_acceleration_duty_cycle(
-    acceleration_value,
+    tilt_value,
     RIGHT_TILT_VALUES,
-    right_accelerometer_index,
+    RIGHT_ACCELEROMETER_INDEX,
     x_acc_duty_cycle_25_index,
     x_acc_duty_cycle_50_index,
     x_acc_duty_cycle_75_index,
@@ -231,12 +259,11 @@ void define_right_acceleration(int acceleration_value) {
 }
 
 
-void define_left_acceleration(int acceleration_value) {
-  int left_accelerometer_index = 12;
+void define_left_acceleration(int tilt_value) {
   define_acceleration_duty_cycle(
-    acceleration_value,
+    tilt_value,
     LEFT_TILT_VALUES,
-    left_accelerometer_index,
+    LEFT_ACCELEROMETER_INDEX,
     x_acc_duty_cycle_25_index,
     x_acc_duty_cycle_50_index,
     x_acc_duty_cycle_75_index,
@@ -246,18 +273,30 @@ void define_left_acceleration(int acceleration_value) {
 
 
 void define_x_acceleration(int x_tilt_value) {
-  define_right_acceleration(x_tilt_value);
-  define_left_acceleration(x_tilt_value);
+  if (x_tilt_value > NO_TILT_UPPER_LIMIT) {
+    define_right_acceleration(x_tilt_value);
+  } else if (x_tilt_value < NO_TILT_LOWER_LIMIT) {
+    define_left_acceleration(x_tilt_value);
+  } else {
+    _data[RIGHT_ACCELEROMETER_INDEX] = 1;
+    _data[LEFT_ACCELEROMETER_INDEX] = 1;
+  }
 }
 
 
 void define_y_acceleration(int y_tilt_value) {
-  define_up_acceleration(y_tilt_value);
-  define_down_acceleration(y_tilt_value);
+  if (y_tilt_value > NO_TILT_UPPER_LIMIT) {
+    define_down_acceleration(y_tilt_value);
+  } else if (y_tilt_value < NO_TILT_LOWER_LIMIT) {
+    define_up_acceleration(y_tilt_value);
+  } else {
+    _data[DOWN_ACCELEROMETER_INDEX] = 1;
+    _data[UP_ACCELEROMETER_INDEX] = 1;
+  }
 }
 
 
-int round_acceleration(int acceleration) {
+int round_tilt_value(int acceleration) {
   int rounded_acceleration = floor(acceleration / 100);
   return rounded_acceleration;
 }
@@ -267,10 +306,10 @@ void define_acceleration() {
   int x_tilt_value = analogRead(XPIN);
   int y_tilt_value = analogRead(YPIN);
 
-  x_tilt_value = round_acceleration(
+  x_tilt_value = round_tilt_value(
     x_tilt_value
   );
-  y_tilt_value = round_acceleration(
+  y_tilt_value = round_tilt_value(
     y_tilt_value
   );
 

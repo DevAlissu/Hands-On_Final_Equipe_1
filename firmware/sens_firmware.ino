@@ -37,35 +37,21 @@
 #define LEFT_ACCELEROMETER_INDEX 12
 
 #define VARY_DUTY_CYCLE true // If this is set to "false", the duty cycle will remain constant at 100%. If it's set to "true", the duty cycle will vary proportionally with the controller's tilt, ranging from 25% to 100%
+#define TILT_INTERVAL_STEP 1
 
 const int ACC_DUTY_CYCLE_25[4] = {0,1,1,1};
 const int ACC_DUTY_CYCLE_50[4] = {0,0,1,1};
 const int ACC_DUTY_CYCLE_75[4] = {0,0,0,1};
 const int ACC_DUTY_CYCLE_100[4] = {0,0,0,0};
 
-/*
-  Changing the upper and lower no-tilt limit values allows to configure the controller's sensitivity. The greater the interval, the lesser the controller's sensitivity.
-  Therefore, if it's wanted to keep the accelerometer active in the firmware, the maximum upper value must be 21, and the lower value must be 15.
-  However, setting the upper limit to 21 and the lower limit to 15 prevents the duty cycle from varying, even if the "VARY_DUTY_CYCLE" constant is set to true.
-  Therefore, it is recommended that the maximum upper value be 20 and the minimum lower value be 16
-*/
-const int NO_TILT_UPPER_LIMIT = 19; // It can vary within a range of 18 to 20 (with 18 as the default)
-const int NO_TILT_LOWER_LIMIT = 17; // It can vary within a range of 16 to 18 (with 18 as the default)
 
-const int UP_TILT_VALUES[4] = {
-  17, // Corresponds to the smaller tilt
-  16,
-  15,
-  14 // Corresponds to the largest tilt
-};
-const int DOWN_TILT_VALUES[4] = {
-  19, // Corresponds to the smaller tilt
-  20,
-  21,
-  22 // Corresponds to the largest tilt
-};
-const int* RIGHT_TILT_VALUES = DOWN_TILT_VALUES;
-const int* LEFT_TILT_VALUES = UP_TILT_VALUES;
+const int NO_TILT_UPPER_LIMIT = 19;
+const int NO_TILT_LOWER_LIMIT = 17;
+
+int UP_TILT_VALUES[4] = {0};
+int DOWN_TILT_VALUES[4] = {0};
+int RIGHT_TILT_VALUES[4] = {0};
+int LEFT_TILT_VALUES[4] = {0};
 
 int x_acc_duty_cycle_25_index = 0;
 int x_acc_duty_cycle_50_index = 0;
@@ -89,6 +75,21 @@ bool _data[BUTTONS_BUFFER_SIZE] = {false};
 uint8_t data_sent_counter = 0;
 
 
+void define_tilt_values(
+  int tilt_values_vector[4],
+  int NO_TILT_UPPER_OR_LOWER_LIMIT,
+  int _step,
+  bool icreasing
+) {
+  int tilt_value = NO_TILT_UPPER_OR_LOWER_LIMIT;
+  for (int i = 0; i < 4; i++) {
+    tilt_values_vector[i] = tilt_value;
+    if (icreasing) tilt_value += _step;
+    else tilt_value -= _step;
+  }
+}
+
+
 void send_data() {
   if(data_sent_counter < BUTTONS_BUFFER_SIZE){
     digitalWrite(DATA_PIN, _data[data_sent_counter]);
@@ -103,6 +104,16 @@ void print_data_buffer() {
     Serial.printf("%d ", _data[i]);
   }
   Serial.println();
+}
+
+
+void print_int_vector(
+  int* vector
+) {
+  for(int i = 0; i < 4; i++){
+    printf("%d ", vector[i]);
+  }
+  printf("\n");
 }
 
 
@@ -179,9 +190,21 @@ int set_acc_duty_cycle_index_value(int index) {
 }
 
 
-void define_acceleration_duty_cycle(
+bool define_acceleration_according_to_the_tilt_interval(
   int tilt_value,
   const int values_corresponding_to_the_controllers_tilt[4],
+  int upper_index,
+  int lower_index
+) {
+  bool right_or_down_accelearation_condition = tilt_value >= values_corresponding_to_the_controllers_tilt[upper_index] && tilt_value < values_corresponding_to_the_controllers_tilt[lower_index];
+  bool left_or_up_acceleration_condition = tilt_value <= values_corresponding_to_the_controllers_tilt[upper_index] && tilt_value > values_corresponding_to_the_controllers_tilt[lower_index];
+  return right_or_down_accelearation_condition  || left_or_up_acceleration_condition;
+}
+
+
+void define_acceleration_duty_cycle(
+  int tilt_value,
+  int values_corresponding_to_the_controllers_tilt[4],
   int button_index,
   int &acc_duty_cycle_25_index,
   int &acc_duty_cycle_50_index,
@@ -197,22 +220,41 @@ void define_acceleration_duty_cycle(
     acc_duty_cycle_100_index = set_acc_duty_cycle_index_value(
       acc_duty_cycle_100_index
     );
-  } else if (tilt_value == values_corresponding_to_the_controllers_tilt[0]) {
+  } else if (define_acceleration_according_to_the_tilt_interval(
+      tilt_value,
+      values_corresponding_to_the_controllers_tilt,
+      0,
+      1
+    )) {
     _data[button_index] = ACC_DUTY_CYCLE_25[acc_duty_cycle_25_index];
     acc_duty_cycle_25_index = set_acc_duty_cycle_index_value(
       acc_duty_cycle_25_index
     );
-  } else if (tilt_value == values_corresponding_to_the_controllers_tilt[1]) {
+  } else if (define_acceleration_according_to_the_tilt_interval(
+      tilt_value,
+      values_corresponding_to_the_controllers_tilt,
+      1,
+      2
+    )) {
     _data[button_index] = ACC_DUTY_CYCLE_75[acc_duty_cycle_50_index];
     acc_duty_cycle_50_index = set_acc_duty_cycle_index_value(
       acc_duty_cycle_50_index
     );
-  } else if (tilt_value == values_corresponding_to_the_controllers_tilt[2]) {
+  } else if (
+    define_acceleration_according_to_the_tilt_interval(
+      tilt_value,
+      values_corresponding_to_the_controllers_tilt,
+      2,
+      3
+    )) {
     _data[button_index] = ACC_DUTY_CYCLE_50[acc_duty_cycle_75_index];
     acc_duty_cycle_75_index = set_acc_duty_cycle_index_value(
       acc_duty_cycle_75_index
     );
-  } else if (tilt_value == values_corresponding_to_the_controllers_tilt[3]) {
+  } else if (
+    tilt_value >= values_corresponding_to_the_controllers_tilt[3] ||
+    tilt_value <= values_corresponding_to_the_controllers_tilt[3]
+    ) {
     _data[button_index] = ACC_DUTY_CYCLE_100[acc_duty_cycle_100_index];
     acc_duty_cycle_100_index = set_acc_duty_cycle_index_value(
       acc_duty_cycle_100_index
@@ -302,6 +344,13 @@ int round_tilt_value(int acceleration) {
 }
 
 
+/*int round_tilt_value(int acceleration) {
+  int rounded_acceleration = floor(acceleration / 10);
+  Serial.println(rounded_acceleration );
+  return rounded_acceleration;
+}*/
+
+
 void define_acceleration() {
   int x_tilt_value = analogRead(XPIN);
   int y_tilt_value = analogRead(YPIN);
@@ -348,6 +397,34 @@ void setup() {
   pinMode(LATCH_PIN, INPUT_PULLDOWN);
   init_buttons();
   time_since_boot = esp_timer_get_time();
+
+  define_tilt_values(
+    UP_TILT_VALUES,
+    NO_TILT_LOWER_LIMIT,
+    TILT_INTERVAL_STEP,
+    false
+  );
+
+  define_tilt_values(
+    DOWN_TILT_VALUES,
+    NO_TILT_UPPER_LIMIT,
+    TILT_INTERVAL_STEP,
+    true
+  );
+
+  define_tilt_values(
+    RIGHT_TILT_VALUES,
+    NO_TILT_UPPER_LIMIT,
+    TILT_INTERVAL_STEP,
+    true
+  );
+
+  define_tilt_values(
+    LEFT_TILT_VALUES,
+    NO_TILT_LOWER_LIMIT,
+    TILT_INTERVAL_STEP,
+    false
+  );
 }
 
 void loop() {

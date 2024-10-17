@@ -39,11 +39,17 @@
 #define VARY_DUTY_CYCLE true // If this is set to "false", the duty cycle will remain constant at 100%. If it's set to "true", the duty cycle will vary proportionally with the controller's tilt, ranging from 25% to 100%
 #define TILT_INTERVAL_STEP 1
 
-const int ACC_DUTY_CYCLE_25[4] = {0,1,1,1};
+#define DUTY_CYCLE_VECTOR_SIZE 4
+
+int* ACC_DUTY_CYCLE_25 = new int[DUTY_CYCLE_VECTOR_SIZE];
+int* ACC_DUTY_CYCLE_50 = new int[DUTY_CYCLE_VECTOR_SIZE];
+int* ACC_DUTY_CYCLE_75 = new int[DUTY_CYCLE_VECTOR_SIZE];
+int* ACC_DUTY_CYCLE_100 = new int[DUTY_CYCLE_VECTOR_SIZE];
+
+/*const int ACC_DUTY_CYCLE_25[4] = {0,1,1,1};
 const int ACC_DUTY_CYCLE_50[4] = {0,0,1,1};
 const int ACC_DUTY_CYCLE_75[4] = {0,0,0,1};
-const int ACC_DUTY_CYCLE_100[4] = {0,0,0,0};
-
+const int ACC_DUTY_CYCLE_100[4] = {0,0,0,0};*/
 
 const int NO_TILT_UPPER_LIMIT = 19;
 const int NO_TILT_LOWER_LIMIT = 17;
@@ -73,6 +79,72 @@ long time_since_boot = 0;
 
 bool _data[BUTTONS_BUFFER_SIZE] = {false};
 uint8_t data_sent_counter = 0;
+
+
+void set_active_elements(
+    int* duty_cycle_vector,
+    int number_of_active_elements
+) {
+    for (int i = 0; i < number_of_active_elements; i++) {
+      duty_cycle_vector[i] = 0;
+    }
+    for (int i = number_of_active_elements; i < DUTY_CYCLE_VECTOR_SIZE; i++) {
+      duty_cycle_vector[i] = 1;
+    }
+}
+
+
+void fill_duty_cycle_vector(
+  int* duty_cycle_vector,
+  int duty_cycle_percentage
+) {
+
+  switch (duty_cycle_percentage) {
+    case 25: {
+      int number_of_active_elements = DUTY_CYCLE_VECTOR_SIZE / 4; // 25% of the duty cycle vector's elements
+      set_active_elements(
+        duty_cycle_vector,
+        number_of_active_elements
+      );
+      break;
+    }
+    case 50: {
+      int number_of_active_elements = DUTY_CYCLE_VECTOR_SIZE / 2; // 50% of the duty cycle vector's elements
+      set_active_elements(
+        duty_cycle_vector,
+        number_of_active_elements
+      );
+      break;
+    }
+    case 75: {
+      int number_of_active_elements = DUTY_CYCLE_VECTOR_SIZE * 3 / 4; // 75% of the duty cycle vector's elements
+      set_active_elements(
+        duty_cycle_vector,
+        number_of_active_elements
+      );
+      break;
+    }
+    case 100: {
+      int number_of_active_elements = DUTY_CYCLE_VECTOR_SIZE; // 100% of the duty cycle vector's elements
+      set_active_elements(
+        duty_cycle_vector,
+        number_of_active_elements
+      );
+      break;
+    }
+    default: {
+        break;
+    }
+  }
+}
+
+
+void fill_duty_cycle_vectors() {
+  fill_duty_cycle_vector(ACC_DUTY_CYCLE_25, 25);
+  fill_duty_cycle_vector(ACC_DUTY_CYCLE_50, 50);
+  fill_duty_cycle_vector(ACC_DUTY_CYCLE_75, 75);
+  fill_duty_cycle_vector(ACC_DUTY_CYCLE_75, 100);
+}
 
 
 void define_tilt_values(
@@ -108,9 +180,10 @@ void print_data_buffer() {
 
 
 void print_int_vector(
-  int* vector
+  int* vector,
+  int vector_size
 ) {
-  for(int i = 0; i < 4; i++){
+  for(int i = 0; i < vector_size; i++){
     printf("%d ", vector[i]);
   }
   printf("\n");
@@ -130,6 +203,37 @@ void clk(){
     // digitalWrite(LED_PIN, LOW);/
     clk_state_high = false;
   }
+}
+
+
+void define_tilt_values_for_each_direction() {
+  define_tilt_values(
+    UP_TILT_VALUES,
+    NO_TILT_LOWER_LIMIT,
+    TILT_INTERVAL_STEP,
+    false
+  );
+
+  define_tilt_values(
+    DOWN_TILT_VALUES,
+    NO_TILT_UPPER_LIMIT,
+    TILT_INTERVAL_STEP,
+    true
+  );
+
+  define_tilt_values(
+    RIGHT_TILT_VALUES,
+    NO_TILT_UPPER_LIMIT,
+    TILT_INTERVAL_STEP,
+    true
+  );
+
+  define_tilt_values(
+    LEFT_TILT_VALUES,
+    NO_TILT_LOWER_LIMIT,
+    TILT_INTERVAL_STEP,
+    false
+  );
 }
 
 
@@ -398,33 +502,8 @@ void setup() {
   init_buttons();
   time_since_boot = esp_timer_get_time();
 
-  define_tilt_values(
-    UP_TILT_VALUES,
-    NO_TILT_LOWER_LIMIT,
-    TILT_INTERVAL_STEP,
-    false
-  );
-
-  define_tilt_values(
-    DOWN_TILT_VALUES,
-    NO_TILT_UPPER_LIMIT,
-    TILT_INTERVAL_STEP,
-    true
-  );
-
-  define_tilt_values(
-    RIGHT_TILT_VALUES,
-    NO_TILT_UPPER_LIMIT,
-    TILT_INTERVAL_STEP,
-    true
-  );
-
-  define_tilt_values(
-    LEFT_TILT_VALUES,
-    NO_TILT_LOWER_LIMIT,
-    TILT_INTERVAL_STEP,
-    false
-  );
+  fill_duty_cycle_vectors();
+  define_tilt_values_for_each_direction();
 }
 
 void loop() {

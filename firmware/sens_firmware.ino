@@ -33,7 +33,7 @@
 #define START_BUTTON_INDEX 8
 
 #define VARY_DUTY_CYCLE true // If this is set to "false", the duty cycle will remain constant at 100%. If it's set to "true", the duty cycle will vary proportionally with the controller's tilt, ranging from 25% to 100%
-#define TILT_INTERVAL_STEP 1
+#define TILT_INTERVAL_STEP 5
 
 #define DUTY_CYCLE_VECTOR_SIZE 4
 
@@ -47,8 +47,8 @@ const int ACC_DUTY_CYCLE_50[4] = {0,0,1,1};
 const int ACC_DUTY_CYCLE_75[4] = {0,0,0,1};
 const int ACC_DUTY_CYCLE_100[4] = {0,0,0,0};*/
 
-const int NO_TILT_UPPER_LIMIT = 19;
-const int NO_TILT_LOWER_LIMIT = 17;
+const int NO_TILT_UPPER_LIMIT = 195;
+const int NO_TILT_LOWER_LIMIT = 175;
 
 int UP_TILT_VALUES[4] = {0};
 int DOWN_TILT_VALUES[4] = {0};
@@ -139,7 +139,7 @@ void fill_duty_cycle_vectors() {
   fill_duty_cycle_vector(ACC_DUTY_CYCLE_25, 25);
   fill_duty_cycle_vector(ACC_DUTY_CYCLE_50, 50);
   fill_duty_cycle_vector(ACC_DUTY_CYCLE_75, 75);
-  fill_duty_cycle_vector(ACC_DUTY_CYCLE_75, 100);
+  fill_duty_cycle_vector(ACC_DUTY_CYCLE_100, 100);
 }
 
 
@@ -259,6 +259,8 @@ void latch(){
   data_sent_counter = 0;
   read_buttons();
   define_acceleration();
+
+  // print_int_vector(RIGHT_TILT_VALUES, 4);
   
   print_data_buffer();
 }*/
@@ -346,7 +348,7 @@ void define_acceleration_duty_cycle(
       1,
       2
     )) {
-    _data[button_index] = ACC_DUTY_CYCLE_75[acc_duty_cycle_50_index];
+    _data[button_index] = ACC_DUTY_CYCLE_50[acc_duty_cycle_50_index];
     acc_duty_cycle_50_index = set_acc_duty_cycle_index_value(
       acc_duty_cycle_50_index
     );
@@ -357,7 +359,7 @@ void define_acceleration_duty_cycle(
       2,
       3
     )) {
-    _data[button_index] = ACC_DUTY_CYCLE_50[acc_duty_cycle_75_index];
+    _data[button_index] = ACC_DUTY_CYCLE_75[acc_duty_cycle_75_index];
     acc_duty_cycle_75_index = set_acc_duty_cycle_index_value(
       acc_duty_cycle_75_index
     );
@@ -456,17 +458,16 @@ void define_y_acceleration(int y_tilt_value) {
 }
 
 
-int round_tilt_value(int acceleration) {
+/*int round_tilt_value(int acceleration) {
   int rounded_acceleration = floor(acceleration / 100);
   return rounded_acceleration;
-}
-
-
-/*int round_tilt_value(int acceleration) {
-  int rounded_acceleration = floor(acceleration / 10);
-  Serial.println(rounded_acceleration );
-  return rounded_acceleration;
 }*/
+
+
+int round_tilt_value(int acceleration) {
+  int rounded_acceleration = floor(acceleration / 10);
+  return rounded_acceleration;
+}
 
 
 void define_acceleration() {

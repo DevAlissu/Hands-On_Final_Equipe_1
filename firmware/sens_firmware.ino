@@ -20,7 +20,7 @@
 #define YPIN 35
 #define ZPIN 34
 
-#define BUTTONS_BUFFER_SIZE 13
+#define BUTTONS_BUFFER_SIZE 9
 
 #define A_BUTTON_INDEX 0
 #define B_BUTTON_INDEX 1
@@ -31,10 +31,6 @@
 #define RIGHT_BUTTON_INDEX 6
 #define LEFT_BUTTON_INDEX 7
 #define START_BUTTON_INDEX 8
-#define UP_ACCELEROMETER_INDEX 9
-#define DOWN_ACCELEROMETER_INDEX 10
-#define RIGHT_ACCELEROMETER_INDEX 11
-#define LEFT_ACCELEROMETER_INDEX 12
 
 #define VARY_DUTY_CYCLE true // If this is set to "false", the duty cycle will remain constant at 100%. If it's set to "true", the duty cycle will vary proportionally with the controller's tilt, ranging from 25% to 100%
 #define TILT_INTERVAL_STEP 1
@@ -258,6 +254,16 @@ void latch(){
 }
 
 
+/*void latch(){
+  time_since_boot = esp_timer_get_time();
+  data_sent_counter = 0;
+  read_buttons();
+  define_acceleration();
+  
+  print_data_buffer();
+}*/
+
+
 void read_buttons(){
   /*
    * data[0] = A
@@ -371,7 +377,7 @@ void define_up_acceleration(int tilt_value) {
   define_acceleration_duty_cycle(
     tilt_value,
     UP_TILT_VALUES,
-    UP_ACCELEROMETER_INDEX,
+    UP_BUTTON_INDEX,
     y_acc_duty_cycle_25_index,
     y_acc_duty_cycle_50_index,
     y_acc_duty_cycle_75_index,
@@ -384,7 +390,7 @@ void define_down_acceleration(int tilt_value) {
   define_acceleration_duty_cycle(
     tilt_value,
     DOWN_TILT_VALUES,
-    DOWN_ACCELEROMETER_INDEX,
+    DOWN_BUTTON_INDEX,
     y_acc_duty_cycle_25_index,
     y_acc_duty_cycle_50_index,
     y_acc_duty_cycle_75_index,
@@ -396,7 +402,7 @@ void define_right_acceleration(int tilt_value) {
   define_acceleration_duty_cycle(
     tilt_value,
     RIGHT_TILT_VALUES,
-    RIGHT_ACCELEROMETER_INDEX,
+    RIGHT_BUTTON_INDEX,
     x_acc_duty_cycle_25_index,
     x_acc_duty_cycle_50_index,
     x_acc_duty_cycle_75_index,
@@ -409,7 +415,7 @@ void define_left_acceleration(int tilt_value) {
   define_acceleration_duty_cycle(
     tilt_value,
     LEFT_TILT_VALUES,
-    LEFT_ACCELEROMETER_INDEX,
+    LEFT_BUTTON_INDEX,
     x_acc_duty_cycle_25_index,
     x_acc_duty_cycle_50_index,
     x_acc_duty_cycle_75_index,
@@ -424,8 +430,12 @@ void define_x_acceleration(int x_tilt_value) {
   } else if (x_tilt_value < NO_TILT_LOWER_LIMIT) {
     define_left_acceleration(x_tilt_value);
   } else {
-    _data[RIGHT_ACCELEROMETER_INDEX] = 1;
-    _data[LEFT_ACCELEROMETER_INDEX] = 1;
+    if (digitalRead(RIGHT_BUTTON_INDEX)) {
+      _data[RIGHT_BUTTON_INDEX] = 1;
+    }
+    if (digitalRead(LEFT_BUTTON_PIN)) {
+      _data[LEFT_BUTTON_INDEX] = 1;
+    }
   }
 }
 
@@ -436,8 +446,12 @@ void define_y_acceleration(int y_tilt_value) {
   } else if (y_tilt_value < NO_TILT_LOWER_LIMIT) {
     define_up_acceleration(y_tilt_value);
   } else {
-    _data[DOWN_ACCELEROMETER_INDEX] = 1;
-    _data[UP_ACCELEROMETER_INDEX] = 1;
+    if (digitalRead(DOWN_BUTTON_INDEX)) {
+      _data[DOWN_BUTTON_INDEX] = 1;
+    }
+    if (digitalRead(UP_BUTTON_INDEX)) {
+      _data[UP_BUTTON_INDEX] = 1;
+    }
   }
 }
 

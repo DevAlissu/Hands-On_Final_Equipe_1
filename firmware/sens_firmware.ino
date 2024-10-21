@@ -71,10 +71,13 @@ bool clk_state_high = false;
 bool latch_state = false;
 bool latch_state_high = false;
 
+bool accelerometer_enabled = true;  // Flag used to controll the accelerometer's state
+
 long time_since_boot = 0;
 
 bool _data[BUTTONS_BUFFER_SIZE] = {false};
 uint8_t data_sent_counter = 0;
+
 
 
 void set_active_elements(
@@ -242,7 +245,10 @@ void latch(){
     latch_state_high = true;
     data_sent_counter = 0;
     read_buttons();
-    define_acceleration();
+    enable_or_disable_accelerometer();
+    if (!accelerometer_enabled) {
+      define_acceleration();
+    }
     
     print_data_buffer();
   } else if (latch_state == LOW) {
@@ -265,6 +271,13 @@ void latch(){
   print_data_buffer();
 }*/
 
+void enable_or_disable_accelerometer() {
+  // Check if the X and Y buttons are pressed simultaneosly
+  if (_data[X_BUTTON_PIN] == LOW && _data[Y_BUTTON_INDEX] == LOW) {
+    accelerometer_enabled = !accelerometer_enabled;  // Switch the acceleromter state
+  }
+}
+
 
 void read_buttons(){
   /*
@@ -278,6 +291,8 @@ void read_buttons(){
    * data[7] = LEFT
    * data[8] = START
    */
+
+  
   _data[A_BUTTON_INDEX] = digitalRead(A_BUTTON_PIN);
   _data[B_BUTTON_INDEX] = digitalRead(B_BUTTON_PIN);
   _data[X_BUTTON_INDEX] = digitalRead(X_BUTTON_PIN);
@@ -291,8 +306,8 @@ void read_buttons(){
   _data[START_BUTTON_INDEX] = digitalRead(START_BUTTON_PIN);
 
   // The bits from _data[9] to _data[12] won't receive data from the controller. Instead, their values will be defined by the code's internal logic
-  
 }
+  
 
 
 int set_acc_duty_cycle_index_value(int index) {
@@ -468,6 +483,7 @@ int round_tilt_value(int acceleration) {
   int rounded_acceleration = floor(acceleration / 10);
   return rounded_acceleration;
 }
+
 
 
 void define_acceleration() {

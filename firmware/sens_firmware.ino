@@ -487,8 +487,6 @@ void define_acceleration() {
   define_y_acceleration(
     y_tilt_value
   );
-
-  delay(100);
 }
 
 void init_buttons(){
